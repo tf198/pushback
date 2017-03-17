@@ -1,7 +1,7 @@
 const path = require('path');
 const exec = require('child_process').exec;
 const async = require('async');
-const debug = require('debug')('pushback');
+const debug = console.error;
 
 function stringArray(s) {
     if(typeof(s) == 'string') return [s];
@@ -28,7 +28,7 @@ Pushback.prototype.deploy = function(repo, cb) {
         }
     }
 
-    debug("Update in progress");
+    debug("Update in progress: %j", repo);
     const output = [];
 
     debug("repo %j", repo);
