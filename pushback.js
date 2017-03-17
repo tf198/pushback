@@ -64,4 +64,19 @@ Pushback.prototype.deploy = function(repo, cb) {
 
 }
 
+Pushback.prototype.clone = function(name, repo, cb) {
+    debug("Creating app %s", name);
+
+    if(!this.config.basePath) return cb(new Error("basePath not set"));
+
+    options = {cwd: this.config.basePath};
+    exec(`git clone ${repo} ${name}`, options, (err, stdout, stderr) => {
+        if(err) {
+            console.error(err);
+            return cb(err);
+        }
+        cb(null, stdout);
+    }); 
+}
+
 module.exports = Pushback;

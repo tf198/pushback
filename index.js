@@ -106,6 +106,33 @@ app.post('/apps/:name', function(req, res) {
 
 });
 
+app.post('/create', auth, function(req, res) {
+    var c = concat((raw) => {
+        try {
+            var data = JSON.parse(raw);
+
+            if(!data.repo || !data.name) {
+                throw new Error("Missing info");
+            }
+
+
+        } catch(e) {
+            return res.status(400).send({error: e.message});
+        }
+        
+        pushback.clone(data.name, data.repo, (err) => {
+            if(err) return res.status(500).send({error: err.message});
+            res.send({message: data.name + " created"});
+        });
+    });
+
+    c.on('error', (err) => {
+        res.status(400).send({error: err.message});
+    });
+
+    req.pipe(c);
+});
+
 
 var port = process.env.PORT || 1401;
 
