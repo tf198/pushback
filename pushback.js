@@ -9,6 +9,13 @@ function stringArray(s) {
 }
 
 function Pushback(config) {
+
+    if(!config.basePath) throw new Error("basePath not set");
+
+    Object.keys(config.repos).map((k) => {
+        config.repos[k].name = k;
+    });
+
     this.config = config;
 }
 
@@ -28,16 +35,16 @@ Pushback.prototype.deploy = function(repo, cb) {
         }
     }
 
-    debug("Update in progress: %j", repo);
+    debug("Update in progress for %s", repo.name);
     const output = [];
 
-    debug("repo %j", repo);
+    var cwd;
 
-    if(!repo.path) {
-        debug("path not set");
-        return cb(new Error("No path for repo"));
+    if(repo.path) {
+        cwd = path.resolve(repo.path);
+    } else {
+        cwd = path.join(this.config.basePath, repo.name);
     }
-    const cwd = path.resolve(repo.path);
 
     commands = [];
     if(repo.preDeploy) commands = commands.concat(stringArray(repo.preDeploy));
@@ -45,10 +52,10 @@ Pushback.prototype.deploy = function(repo, cb) {
     if(repo.postDeploy) commands = commands.concat(stringArray(repo.postDeploy));
 
     const options = {cwd};
-    debug("options %j", options);
+    debug("%s: options %j", repo.name, options);
 
     async.eachSeries(commands, (command, next) => {
-        debug("Executing %j", command);
+        debug("%s: Executing %j", repo.name, command);
         exec(command, options, (err, stdout, stderr) => {
             output.push({command, stdout, stderr});
             next(err);
@@ -59,7 +66,7 @@ Pushback.prototype.deploy = function(repo, cb) {
             cb(err, output);
             return;
         }
-        debug("Update successful");
+        debug("%s: Update successful", repo.name);
         cb(null, output);
     });
 
