@@ -1,11 +1,15 @@
 const express = require('express');
 const fs = require('fs');
 const concat = require('concat-stream');
+const path = require('path');
 const Pushback = require('./pushback');
 
 const app = express();
 
-const configFile = process.env.CONFIG || 'config.json';
+var configFile = process.env.CONFIG;
+if(!configFile) {
+    configFile = path.join(__dirname, 'config.json');
+}
 
 const config = JSON.parse(fs.readFileSync(configFile));
 
@@ -31,11 +35,11 @@ function auth(req, res, next) {
     next();
 }
 
-app.get('/repos', auth, function(req, res) {
+app.get('/apps', auth, function(req, res) {
     res.send(pushback.config.repos);
 });
 
-app.get('/repos/:name', auth, function(req, res) {
+app.get('/apps/:name', auth, function(req, res) {
     pushback.deploy(req.params.name, (err, output) => {
         if(err) {
             return res.status(400).send({error: err.message, output});
@@ -44,7 +48,7 @@ app.get('/repos/:name', auth, function(req, res) {
     });
 });
 
-app.post('/repos/:name', function(req, res) {
+app.post('/apps/:name', function(req, res) {
 
     var c = concat((raw) => {
 
