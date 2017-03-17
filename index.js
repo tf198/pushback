@@ -31,7 +31,6 @@ const providers = {
         var hmac;
 
         try {
-            console.log(repo.secret);
             hmac = crypto.createHmac(parts[0], repo.secret);
         } catch(e) {
             return next(e);
@@ -41,7 +40,6 @@ const providers = {
             var data = hmac.read();
             if(data) {
                 var digest = data.toString('hex');
-                console.log(digest, parts[1]);
                 if(data.toString('hex') != parts[1]) {
                     return next(new Error("Bad secret"));
                 }
