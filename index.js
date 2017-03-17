@@ -3,6 +3,7 @@ const fs = require('fs');
 const concat = require('concat-stream');
 const path = require('path');
 const Pushback = require('./pushback');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -19,9 +20,36 @@ const pushback = new Pushback(config);
 // Should throw an error if not allowed
 // Should return false if deployment is not required.
 const providers = {
-    'github': function(payload, repo) {
-        if(!payload.secret) throw new Error("No secret set");
-        if(payload.secret != repo.secret) throw new Error("Bad secret");
+    'github': function(req, repo, next) {
+
+        // secret validation
+        if(!req.headers['x-hub-signature']) {
+            return next(new Error("No signature"));
+        }
+        var parts = req.headers['x-hub-signature'].split('=');
+
+        var hmac;
+
+        try {
+            console.log(repo.secret);
+            hmac = crypto.createHmac(parts[0], repo.secret);
+        } catch(e) {
+            return next(e);
+        }
+
+        hmac.on('readable', () => {
+            var data = hmac.read();
+            if(data) {
+                var digest = data.toString('hex');
+                console.log(digest, parts[1]);
+                if(data.toString('hex') != parts[1]) {
+                    return next(new Error("Bad secret"));
+                }
+                next();
+            }
+        });
+
+        req.pipe(hmac);
     }
 }
 
@@ -50,27 +78,24 @@ app.get('/apps/:name', auth, function(req, res) {
 
 app.post('/apps/:name', function(req, res) {
 
-    var c = concat((raw) => {
+    try {
+        var repo = pushback.getRepo(req.params.name);
+    } catch(e) {
+        return res.status(404).send({error: "No such repo"});
+    }
 
-        // need to authenticate the payload
-        try {
-            var payload = JSON.parse(raw);
-            var repo = pushback.getRepo(req.params.name);
-            var provider = repo.provider || 'github';
-            if(providers[provider] === undefined) throw new Error("No such provider: " + provider);
-            var shouldDeploy = providers[provider](payload, repo);
-        } catch(e) {
-            return setTimeout(() => {
-                res.status(400).send({error: e.message});
-            }, 1000);
-        }
+    var providerName = repo.provider || 'github';
+    var provider = providers[providerName];
+    if(!provider) {
+        return res.status(500).send({error: "No such provider: " + providerName});
+    }
 
-        if(shouldDeploy === false) {
-            return res.send({message: "Skipped deployment"});
-        }
+    provider(req, repo, (err) => {
+        if(err) return setTimeout(() => {
+            res.status(403).send({error: err.message}); 
+        }, 1000);
 
-        // should be good to deploy
-        pushback.deploy(req.params.name, (err, output) => {
+        pushback.deploy(repo, (err, output) => {
             // only give away minimal details
             if(err) {
                 return res.status(400).send({error: "Error deploying - see logs for details"});
@@ -79,11 +104,6 @@ app.post('/apps/:name', function(req, res) {
         });
     });
 
-    c.on('error', (err) => {
-        res.status(400).send({error: err.message});
-    });
-
-    req.pipe(c);
 });
 
 

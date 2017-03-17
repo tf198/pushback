@@ -17,19 +17,24 @@ Pushback.prototype.getRepo = function(name) {
     return this.config.repos[name];
 }
 
-Pushback.prototype.deploy = function(name, cb) {
-    debug("%s: Update in progress", name);
-    const output = [];
-    var repo = this.config.repos[name];
+Pushback.prototype.deploy = function(repo, cb) {
 
-    if(!repo) {
-        debug("%s: no such repo", name);
-        return cb(new Error("No such repo"));
+
+    if(typeof(repo) == 'string') {
+        try {
+            repo = this.getRepo(repo);
+        } catch(e) {
+            return cb(e);
+        }
     }
-    debug("%s: repo %j", name, repo);
+
+    debug("Update in progress");
+    const output = [];
+
+    debug("repo %j", repo);
 
     if(!repo.path) {
-        debug("%s: path not set", name);
+        debug("path not set");
         return cb(new Error("No path for repo"));
     }
     const cwd = path.resolve(repo.path);
@@ -40,10 +45,10 @@ Pushback.prototype.deploy = function(name, cb) {
     if(repo.postDeploy) commands = commands.concat(stringArray(repo.postDeploy));
 
     const options = {cwd};
-    debug("%s: options %j", name, options);
+    debug("options %j", options);
 
     async.eachSeries(commands, (command, next) => {
-        debug("%s: Executing %j", name, command);
+        debug("Executing %j", command);
         exec(command, options, (err, stdout, stderr) => {
             output.push({command, stdout, stderr});
             next(err);
@@ -53,7 +58,7 @@ Pushback.prototype.deploy = function(name, cb) {
             console.error(err);
             cb(err, output);
         }
-        debug("%s: Update successfull", name);
+        debug("Update successful");
         cb(null, output);
     });
 
