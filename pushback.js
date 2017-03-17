@@ -57,6 +57,7 @@ Pushback.prototype.deploy = function(repo, cb) {
         if(err) {
             console.error(err);
             cb(err, output);
+            return;
         }
         debug("Update successful");
         cb(null, output);
