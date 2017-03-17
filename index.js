@@ -48,6 +48,20 @@ const providers = {
         });
 
         req.pipe(hmac);
+    },
+    'simple': function(req, repo, next) {
+
+        var secret = req.headers['x-push-secret'];
+
+        if(secret === undefined) {
+            return next(new Error("No push secret given"));
+        }
+
+        if(secret != repo.secret) {
+            return next(new Error("Bad push secret"));
+        }
+        
+        next();
     }
 }
 
@@ -61,11 +75,13 @@ function auth(req, res, next) {
     next();
 }
 
+// list apps
 app.get('/apps', auth, function(req, res) {
     res.send(pushback.config.repos);
 });
 
-app.get('/apps/:name', auth, function(req, res) {
+// manually deploy an app
+app.get('/apps/:name/deploy', auth, function(req, res) {
     pushback.deploy(req.params.name, (err, output) => {
         if(err) {
             return res.status(400).send({error: err.message, output});
@@ -74,7 +90,8 @@ app.get('/apps/:name', auth, function(req, res) {
     });
 });
 
-app.post('/apps/:name', function(req, res) {
+// deploy an app using a provider
+app.post('/apps/:name/deploy', function(req, res) {
 
     try {
         var repo = pushback.getRepo(req.params.name);
@@ -104,12 +121,16 @@ app.post('/apps/:name', function(req, res) {
 
 });
 
-app.post('/create', auth, function(req, res) {
+// create a new app
+app.post('/apps/:name', auth, function(req, res) {
+
+    var name = req.params.name;
+
     var c = concat((raw) => {
         try {
             var data = JSON.parse(raw);
 
-            if(!data.repo || !data.name) {
+            if(!data.repo) {
                 throw new Error("Missing info");
             }
 
@@ -118,9 +139,9 @@ app.post('/create', auth, function(req, res) {
             return res.status(400).send({error: e.message});
         }
         
-        pushback.clone(data.name, data.repo, (err) => {
+        pushback.clone(name, data.repo, (err) => {
             if(err) return res.status(500).send({error: err.message});
-            res.send({message: data.name + " created"});
+            res.send({message: name + " created"});
         });
     });
 
