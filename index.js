@@ -152,6 +152,12 @@ app.post('/apps/:name', auth, function(req, res) {
     req.pipe(c);
 });
 
+// graceful reload
+process.on('SIGINT', function() {
+    setTimeout(() => {
+        process.exit(0);
+    }, 1000);
+});
 
 var port = process.env.PORT || 1401;
 
